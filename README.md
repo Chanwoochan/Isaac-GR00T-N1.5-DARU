@@ -25,7 +25,7 @@
 <img src="media/robot-demo.gif" width="800" alt="NVIDIA Isaac GR00T N1.5 Header">
 </div>
 
-> Warning
+> ⚠️Warning⚠️
 > This repository is not a clean upstream copy of NVIDIA Isaac GR00T.
 > It has been modified for my DARU robot setup, including custom data configs, training flow, and ROS2 inference clients.
 > Use the instructions in this README with that assumption.
@@ -190,7 +190,7 @@ python scripts/load_dataset.py --dataset-path ./demo_data/robot_sim.PickNPlace
 
 ## 2. Inference
 
-> Warning
+> ⚠️Warning⚠️
 > The inference flow in this repository is DARU-specific.
 > The commands below assume the custom ROS2 client in [`scripts/daru_gr00t_inference_client.py`](scripts/daru_gr00t_inference_client.py) and the robot topics used in this repo.
 
@@ -207,7 +207,7 @@ Start the policy server:
 python scripts/inference_service.py \
     --server \
     --model-path <MODEL_PATH> \
-    --embodiment-tag gr1 \
+    --embodiment-tag new_embodiment \
     --data-config daru
 ```
 
@@ -229,7 +229,7 @@ The DARU client currently expects these ROS2 interfaces:
 - Joint state input: `/gr00t/state`
 - Language command input: `/gr00t/lang_instruction`
 - Action output: `/gr00t/action`
-- Camera inputs:
+- Camera inputs (common, you can set custom topics.):
   - `/zed_left/image_raw/compressed`
   - `/zed_right/image_raw/compressed`
   - `/camera/left_hand/color/image_rect_raw/compressed`
