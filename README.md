@@ -25,6 +25,11 @@
 <img src="media/robot-demo.gif" width="800" alt="NVIDIA Isaac GR00T N1.5 Header">
 </div>
 
+> Warning
+> This repository is not a clean upstream copy of NVIDIA Isaac GR00T.
+> It has been modified for my DARU robot setup, including custom data configs, training flow, and ROS2 inference clients.
+> Use the instructions in this README with that assumption.
+
 <div>
 
 ---
@@ -185,46 +190,57 @@ python scripts/load_dataset.py --dataset-path ./demo_data/robot_sim.PickNPlace
 
 ## 2. Inference
 
-* The GR00T N1.5 model is hosted on [Huggingface](https://huggingface.co/nvidia/GR00T-N1.5-3B)
-* Example cross embodiment dataset is available at [demo_data/robot_sim.PickNPlace](./demo_data/robot_sim.PickNPlace)
+> Warning
+> The inference flow in this repository is DARU-specific.
+> The commands below assume the custom ROS2 client in [`scripts/daru_gr00t_inference_client.py`](scripts/daru_gr00t_inference_client.py) and the robot topics used in this repo.
 
 ### 2.1 Inference with PyTorch
 
-```python
-from gr00t.model.policy import Gr00tPolicy
-from gr00t.data.embodiment_tags import EmbodimentTag
+This repo uses a server-client setup:
 
-# 1. Load the modality config and transforms, or use above
-modality_config = ComposedModalityConfig(...)
-transforms = ComposedModalityTransform(...)
+1. Run the GR00T policy server on the inference machine.
+2. Run the DARU ROS2 client, which subscribes to robot state and cameras, sends observations to the policy server, and publishes joint commands.
 
-# 2. Load the dataset
-dataset = LeRobotSingleDataset(.....<Same as above>....)
-
-# 3. Load pre-trained model
-policy = Gr00tPolicy(
-    model_path="nvidia/GR00T-N1.5-3B",
-    modality_config=modality_config,
-    modality_transform=transforms,
-    embodiment_tag=EmbodimentTag.GR1,
-    device="cuda"
-)
-
-# 4. Run inference
-action_chunk = policy.get_action(dataset[0])
-```
-
-- [`getting_started/1_gr00t_inference.ipynb`](getting_started/1_gr00t_inference.ipynb) is an interactive Jupyter notebook tutorial to build an inference pipeline.
-
-User can also run the inference service using the provided script. The inference service can run in either server mode or client mode.
+Start the policy server:
 
 ```bash
-# server
-python scripts/inference_service.py --model-path nvidia/GR00T-N1.5-3B --server
-
-# client
-python scripts/inference_service.py  --client
+python scripts/inference_service.py \
+    --server \
+    --model-path <MODEL_PATH> \
+    --embodiment-tag gr1 \
+    --data-config daru
 ```
+
+Run the DARU ROS2 inference client:
+
+```bash
+python scripts/daru_gr00t_inference_client.py \
+    --policy_host=localhost \
+    --policy_port=5555 \
+    --lang_instruction="Pick and place bottle." \
+    --hz=15 \
+    --fc_hz=5 \
+    --show_images=false \
+    --dummy_data=false
+```
+
+The DARU client currently expects these ROS2 interfaces:
+
+- Joint state input: `/gr00t/state`
+- Language command input: `/gr00t/lang_instruction`
+- Action output: `/gr00t/action`
+- Camera inputs:
+  - `/zed_left/image_raw/compressed`
+  - `/zed_right/image_raw/compressed`
+  - `/camera/left_hand/color/image_rect_raw/compressed`
+  - `/camera/right_hand/color/image_rect_raw/compressed`
+
+Notes:
+
+- Set `--dummy_data=true` to test the client without live robot state or camera streams.
+- `--action_horizon` limits how many steps from each predicted action chunk are executed.
+- `--lang_instruction` is used as the initial task text and can be updated later through `/gr00t/lang_instruction`.
+- The client publishes filtered joint commands using a first-order low-pass filter controlled by `--fc_hz`.
 
 ### 2.2 Inference with Python TensorRT (Optional)
 
